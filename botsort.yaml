@@ -1,0 +1,10 @@
+tracker_type: botsort
+with_reid: true
+
+appearance_descriptor:
+  name: osnet_x0_25
+  path: weights/osnet_x0_25_msmt17.onnx
+
+max_dist: 0.2
+match_threshold: 0.7
+track_buffer: 80  
