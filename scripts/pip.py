@@ -7,7 +7,6 @@ import onnxruntime as ort
 from ultralytics import YOLO
 from sort import Sort
 
-# ---------- 1. 参数配置 ---------- #
 DIST_TH    = 0.90
 BANK_FILE  = "idbank.pkl"
 TARGET_FPS = 60
@@ -17,18 +16,15 @@ TRACKER_WINDOW_NAME = "Tracker View"
 TRACKER_WINDOW_SIZE = (800, 450)
 HEADROOM_RATIO = 0.20
 TRACKER_GRACE_PERIOD = 1.5
-# JITTER_THRESHOLD 已被移除，由下方更高级的滤波器参数替代
 FILTER_MIN_CUTOFF = 0.05
 FILTER_BETA = 1.0
 
-# ---------- 2. 全局状态变量 ---------- #
 target_id = None
 current_detections = []
 target_last_seen_time = 0
 last_good_box = {}
-filter_sets = {} # 修改为只存储中心点滤波器
+filter_sets = {}
 
-# ---------- 3. 一欧元滤波器实现 ---------- #
 def alpha(cutoff, freq):
     te = 1.0 / freq; tau = 1.0 / (2 * np.pi * cutoff); return 1.0 / (1.0 + tau / te)
 class OneEuroFilter:
@@ -50,7 +46,6 @@ class OneEuroFilter:
         self.x_prev, self.t_prev = x_filtered, t
         return x_filtered
 
-# ---------- 4. 模型与辅助函数 ---------- #
 print("[INFO] Loading models and tracker...")
 yolo = YOLO("weights/yolo11s.pt")
 try:
@@ -105,7 +100,6 @@ def select_target_id(event, x, y, flags, param):
         try: cv2.destroyWindow(TRACKER_WINDOW_NAME)
         except: pass
 
-# ---------- 5. 主循环 ---------- #
 MAIN_WINDOW_NAME = "YOLO Tracking"
 cv2.namedWindow(MAIN_WINDOW_NAME); cv2.setMouseCallback(MAIN_WINDOW_NAME, select_target_id)
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW); interval = 1.0 / TARGET_FPS; last_t = 0.0
@@ -168,11 +162,9 @@ try:
             smooth_cx = filter_sets[sid]['cx'](cx, now)
             smooth_cy = filter_sets[sid]['cy'](cy, now)
 
-            # 使用平滑后的中心点和固定的16:9尺寸来构图
             adj_x1 = int(smooth_cx - fixed_16_9_w / 2)
             adj_y1 = int(smooth_cy - (fixed_16_9_h / 2) * (1 - HEADROOM_RATIO)) # 应用头顶空间
-            
-            # 边界限制
+
             adj_x1 = max(0, min(adj_x1, frame_w - fixed_16_9_w))
             adj_y1 = max(0, min(adj_y1, frame_h - fixed_16_9_h))
             

@@ -2,7 +2,7 @@
 import os
 import time
 import pickle
-import threading  # 引入多线程库
+import threading
 
 import cv2
 import numpy as np

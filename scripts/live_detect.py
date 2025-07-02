@@ -8,7 +8,6 @@ from sort import Sort
 from ultralytics import YOLO
 from insightface.app import FaceAnalysis
 
-# ---------- 参数配置 ----------
 DIST_TH       = 1.08            # 人脸 embedding 距离阈值
 BANK_FILE     = "face_idbank.pkl"
 TARGET_FPS    = 30              # 目标帧率
