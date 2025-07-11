@@ -1,0 +1,5 @@
+---
+globs: *.py
+alwaysApply: false
+---
+因为使用了虚拟环境 所以不要自动生成并运行测试文件 同时不要生成总结markdown

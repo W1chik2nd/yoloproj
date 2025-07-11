@@ -1,0 +1,74 @@
+---
+alwaysApply: false
+---
+# Python Best Practices
+
+## 项目结构 Project Structure
+- **src‑layout**：业务代码放在 `src/your_package_name/`
+- **tests/**：与 src 并行，放单元/集成测试  
+- **configs/**：YAML 或 JSON 超参文件，使用 Hydra / OmegaConf 加载  
+- **notebooks/**：实验与可视化 Demo  
+- **data/** 与 **models/** 由 DVC 或 Git LFS 管理，远端存储 (S3/OSS)  
+- **docs/**：MkDocs 生成 API/科研报告  
+- 避免把敏感信息写死，使用 `.env` 或 instance/ 目录隔离部署配置
+
+## 依赖管理 Dependencies
+- 推荐 **Poetry** 或 **PDM**，集中管理 `pyproject.toml`
+- 显卡环境用 `torch==2.x+cu118`，检测器 `ultralytics==8.3.*`
+- `dev` 与 `prod` 依赖分层，锁定版本，启用 Dependabot / Renovate 自动更新
+- **pre‑commit**：black、ruff、mypy、pytest 一键运行
+
+## 代码风格 Code Style
+- **Black** 格式化、**isort** 排序、**ruff** lint、**mypy/pyright** 静态类型
+- PEP 8 命名；行宽 88
+- Python 3.10+ 使用并统一 `T | None` 语法  
+- 类型别名示例  
+  ```python
+  BoundingBox = tuple[int, int, int, int]  # x1,y1,x2,y2
+  TrackID = int
+  ```
+
+## 模型与数据 Models & Data
+- **Detector**：Ultralytics **YOLOv9** (`YOLO('yolov9c.pt')`)；可选 YOLOv8
+- **Tracker**：DeepSORT；若需更稳，可换 **BoT‑SORT** / **ByteTrack**
+- 数据集版本控制：**DVC**；实验元数据输出到 `outputs/exp.yaml`
+- 指标评估：`trackeval` 统一计算 MOTA / IDF1 / HOTA
+
+## 服务接口 Inference Service (Optional)
+- 使用 **FastAPI** 暴露 `/infer` REST 接口
+- **Pydantic** 校验请求/响应；启用 CORS 白名单、Token Auth、速率限制 `slowapi`
+
+## 性能优化 Performance
+- GPU 推理启用 `.half()` 半精度；导出 **ONNX / TensorRT**
+- PyTorch 2.x `torch.compile()` 自动图优化
+- 多流视频批量化，提高 GPU 吞吐
+
+## 日志与监控 Logging & Observability
+- 训练/评估：**TensorBoard** 或 **Weights & Biases**
+- 线上监控：Prometheus + Grafana 记录 FPS / GPU 利用率；Sentry 捕捉异常
+
+## 测试 Testing
+- **pytest**：单元测试 `tests/test_filters.py`，集成测试 CPU‑only 快速跑
+- **factory_boy / Faker** 生成伪数据
+- 覆盖率用 `pytest‑cov`；GitHub Actions PR 门禁
+
+## CI/CD
+- GitHub Actions：`lint → type‑check → pytest → build Docker → push`
+- 生产部署：Docker 容器内 **Gunicorn** (WSGI) 或 **Uvicorn** (ASGI)
+
+## 文档 Documentation
+- Google 或 NumPy Docstring；**mkdocs‑material + mkdocstrings** 自动生成
+- README 示例  
+  ```bash
+  poetry install
+  yolo track model=yolov9c.pt source=demo.mp4 tracker=deep_sort.yaml
+  ```
+
+## 安全 Security
+- 离线推理可忽略；如部署 API：HTTPS、Auth token、速率限制、最小权限原则
+- 权重分发：S3 Pre‑Signed URL + SHA‑256 校验
+
+## 输出语言 Output Language
+除代码块 (```` ... ````) 内保留原语言外，**一律使用简体中文回答**
+
+---
