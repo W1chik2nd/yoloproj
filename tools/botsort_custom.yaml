@@ -1,0 +1,26 @@
+# ------------------- BoT-SORT 完整配置 --------------------
+tracker_type: botsort          # 固定
+# --- 基本 ---
+with_reid: true                # 启用外观匹配
+model: auto                    # auto=按 reid_weights 自动加载；禁用外观写 ""
+reid_weights: weights/osnet_x0_25_msmt17.onnx   # ← 换成你的
+
+# --- 跟踪阈值 ---
+track_high_thresh: 0.6
+track_low_thresh: 0.1
+match_thresh: 0.7
+track_buffer: 180              # 遮挡 6 s (@30 FPS) 不删轨
+delta_t: 3
+mot20: false                   # 兼容 MOT20 数据集时设 true
+
+# --- GMC(相机运动补偿) ---
+gmc_method: none               # orb | ecc | none ；不需要就 none
+bbox_nms: true                 # 是否对 GMC 校正后的框再做一次 NMS
+
+# --- 其他高级 ---
+proximity_thresh: 0.5          # 近邻过滤
+appearance_thresh: 0.25        # ReID 相似度低于此视为不同目标
+ablation: false                # 调试开关
+ema_alpha: 0.9                 # 外观特征 EMA
+model_type: oc                 # oc = IoU+ReID (BoT-SORT 默认)
+# ----------------------------------------------------------
