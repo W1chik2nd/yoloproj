@@ -1,4 +1,4 @@
-# gui.py (v3.4 - 实现停止后重置UI)
+# gui.py (v3.5 - 添加了重置功能)
 import sys
 import warnings
 import time
@@ -13,11 +13,10 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt, QTimer
 
 warnings.filterwarnings('ignore')
 
-# --- PyQt5 Worker and Widgets ---  
+# --- PyQt5 Worker and Widgets ---
 
 class VideoWorker(QThread):
     new_frame = pyqtSignal(int, np.ndarray)
-    # 增加一个 int 参数来传递 cam_id
     new_tracker_view = pyqtSignal(int, object)
     active_ids_update = pyqtSignal(int, set)
     status_update = pyqtSignal(str)
@@ -40,10 +39,8 @@ class VideoWorker(QThread):
                 view_to_show = result.get("tracker_view")
                 should_close = result.get("should_close_tracker")
                 if should_close:
-                    # 发送信号时，第一个参数是自己的cam_id
                     self.new_tracker_view.emit(self.cam_id, None)
                 else:
-                    # 发送信号时，第一个参数是自己的cam_id
                     self.new_tracker_view.emit(self.cam_id, view_to_show)
         except StopIteration:
             self.status_update.emit(f"摄像头 {self.cam_id} 视频流结束。")
@@ -63,17 +60,14 @@ class AspectRatioLabel(QLabel):
 
     def setPixmap(self, pixmap):
         self._pixmap = pixmap
-        self.update() # 触发重绘
+        self.update()
 
     def paintEvent(self, event):
         if self._pixmap.isNull():
             super().paintEvent(event)
             return
-
-        # 保持图像的宽高比进行缩放，填满整个控件
-        scaled_pixmap = self._pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
-        # 在控件中心绘制图像
+        scaled_pixmap = self._pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         from PyQt5.QtGui import QPainter
         painter = QPainter(self)
         x = (self.width() - scaled_pixmap.width()) / 2
@@ -133,12 +127,17 @@ class MainWindow(QMainWindow):
 
         button_panel = QWidget()
         button_layout = QHBoxLayout(button_panel)
-        self.start_btn = QPushButton("启动追踪")
-        self.stop_btn = QPushButton("停止追踪")
+        self.start_btn = QPushButton("🚀启动追踪")
+        self.stop_btn = QPushButton("🛑停止追踪")
+        # <<< 新增: 创建重置按钮 >>>
+        self.reset_btn = QPushButton("🔄重置系统")
         self.stop_btn.setEnabled(False)
-        for btn in [self.start_btn, self.stop_btn]:
+        self.reset_btn.setEnabled(False)
+        for btn in [self.start_btn, self.stop_btn, self.reset_btn]:
             btn.setMinimumHeight(40); btn.setStyleSheet("padding: 5px;")
-        button_layout.addWidget(self.start_btn); button_layout.addWidget(self.stop_btn)
+        button_layout.addWidget(self.start_btn)
+        button_layout.addWidget(self.stop_btn)
+        button_layout.addWidget(self.reset_btn)
 
         right_layout.addWidget(id_list_label); right_layout.addWidget(self.id_list_widget)
         right_layout.addStretch(); right_layout.addWidget(button_panel)
@@ -151,12 +150,13 @@ class MainWindow(QMainWindow):
         
         self.start_btn.clicked.connect(self.start_tracking)
         self.stop_btn.clicked.connect(self.stop_tracking)
+        # <<< 新增: 连接重置按钮的点击信号 >>>
+        self.reset_btn.clicked.connect(self.reset_tracking)
         self.id_list_widget.itemClicked.connect(self.on_id_list_clicked)
 
     def start_tracking(self):
         if self.is_running: return
         self.active_sids.clear()
-        
         for cam_id in [0, 2]:
             worker = VideoWorker(cam_id, self)
             worker.new_frame.connect(self.update_video_frame)
@@ -165,45 +165,45 @@ class MainWindow(QMainWindow):
             worker.status_update.connect(self.update_status)
             worker.start()
             self.threads[cam_id] = worker
-        
         self.is_running = True
         self.id_cleanup_timer.start(1000)
-        self.start_btn.setEnabled(False); self.stop_btn.setEnabled(True)
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        # <<< 新增: 启动时激活重置按钮 >>>
+        self.reset_btn.setEnabled(True)
         self.statusBar().showMessage("追踪已启动...")
 
-    # <<< 关键修改：重写 stop_tracking 函数 >>>
-    def stop_tracking(self):
+    def stop_tracking(self, is_resetting=False):
         if not self.is_running: return
-
-        # 1. 停止所有后台线程和定时器
         self.id_cleanup_timer.stop()
-        for thread in self.threads.values():
-            thread.stop()
+        for thread in self.threads.values(): thread.stop()
         self.threads.clear()
-
-        # 2. 更新运行状态和按钮可用性
         self.is_running = False
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-
-        # 3. 将所有UI元素重置到初始状态
-        self.cam0_label.clear()
-        self.cam0_label.setText("CAM 0")
-        self.cam0_label.setAlignment(Qt.AlignCenter)
-
-        self.cam2_label.clear()
-        self.cam2_label.setText("CAM 2")
-        self.cam2_label.setAlignment(Qt.AlignCenter)
+        # <<< 新增: 停止时禁用重置按钮 >>>
+        self.reset_btn.setEnabled(False)
         
-        self.tracker_label.clear()
-        self.tracker_label.setText("Tracker View")
-        self.tracker_label.setAlignment(Qt.AlignCenter)
+        self.cam0_label.clear(); self.cam0_label.setText("CAM 0"); self.cam0_label.setAlignment(Qt.AlignCenter)
+        self.cam2_label.clear(); self.cam2_label.setText("CAM 2"); self.cam2_label.setAlignment(Qt.AlignCenter)
+        self.tracker_label.clear(); self.tracker_label.setText("Tracker View"); self.tracker_label.setAlignment(Qt.AlignCenter)
+        self.id_list_widget.clear(); self.active_sids.clear()
+        
+        if not is_resetting:
+            self.statusBar().showMessage("追踪已停止。系统已恢复初始状态。")
 
-        self.id_list_widget.clear()
-        self.active_sids.clear()
-
-        # 4. 更新状态栏信息
-        self.statusBar().showMessage("追踪已停止。系统已重置。")
+    # <<< 新增: 重置按钮的槽函数 >>>
+    def reset_tracking(self):
+        """停止追踪，重置后端状态，并刷新UI"""
+        self.statusBar().showMessage("正在重置系统...")
+        # 1. 停止当前追踪并重置UI (传入True避免重复显示状态信息)
+        self.stop_tracking(is_resetting=True)
+        
+        # 2. 调用后端的重置函数
+        tracker.reset_state()
+        
+        # 3. 更新状态栏
+        self.statusBar().showMessage("系统已重置，准备就绪。")
 
     def update_video_frame(self, cam_id, cv_img):
         label = self.cam0_label if cam_id == 0 else self.cam2_label
@@ -211,18 +211,11 @@ class MainWindow(QMainWindow):
         label.setPixmap(qt_img)
 
     def update_tracker_view(self, cam_id, frame_or_none):
-        # 检查当前拥有控制权的摄像头ID
         controlling_cam = tracker.current_cam
-
         if frame_or_none is None:
-            # 只有当发出"清空"信号的线程是当前（或曾经）的控制方时，才执行清空
-            # 或者当控制权被完全释放时 (-1)
             if cam_id == controlling_cam or controlling_cam == -1:
-                self.tracker_label.clear()
-                self.tracker_label.setText("Tracker View")
+                self.tracker_label.clear(); self.tracker_label.setText("Tracker View")
             return
-        
-        # 只有当发出"图像"信号的线程 正是 当前的控制方时，才更新画面
         if cam_id == controlling_cam:
             qt_img = self._convert_cv_qt(frame_or_none)
             self.tracker_label.setPixmap(qt_img)
@@ -235,15 +228,11 @@ class MainWindow(QMainWindow):
         now = time.time()
         self.active_sids = {sid: t for sid, t in self.active_sids.items() if now - t < 3.0}
         current_target = tracker.target_id
-        
         self.id_list_widget.clear()
-        sorted_sids = sorted(self.active_sids.keys())
-        
-        for sid in sorted_sids:
+        for sid in sorted(self.active_sids.keys()):
             item = QListWidgetItem(f"ID: {sid}")
             if sid == current_target:
-                item.setFont(QFont("Arial", 12, QFont.Bold))
-                item.setBackground(QColor("#007ACC")); item.setForeground(QColor("white"))
+                item.setFont(QFont("Arial", 12, QFont.Bold)); item.setBackground(QColor("#007ACC")); item.setForeground(QColor("white"))
             self.id_list_widget.addItem(item)
             
     def on_id_list_clicked(self, item):
@@ -277,13 +266,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
     try:
         tracker.initialize()
     except Exception as e:
         QMessageBox.critical(None, "初始化失败", f"加载模型或初始化追踪器时发生致命错误:\n\n{e}\n\n请检查您的模型文件和环境。")
         sys.exit(1)
-        
     win = MainWindow()
     win.show()
     sys.exit(app.exec_())

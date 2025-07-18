@@ -306,6 +306,31 @@ def cleanup_and_save():
     elif os.path.exists(BANK_FILE): os.remove(BANK_FILE)
     print("[INFO] 模块清理完成。")
 
+def reset_state():
+    global id_bank, next_sid, target_id, current_cam, cam_detections
+    global cam_last_seen, cross_cam_features, person_positions
+    global cam0_right_exit_queue, cam2_left_exit_queue
+    global last_good_box, target_last_seen_time, stabilized_boxes, stability_buffers
+
+    print("[INFO] 重置状态")    
+    with global_lock:
+        id_bank.clear()
+        cross_cam_features.clear()
+        person_positions.clear()
+        cam_detections = {0: [], 2: []}
+        cam_last_seen = {0: 0, 2: 0}
+        cam0_right_exit_queue.clear()
+        cam2_left_exit_queue.clear()
+        last_good_box.clear()
+        stabilized_boxes.clear()
+        stability_buffers.clear()
+
+        next_sid = 1
+        target_id = None
+        current_cam = -1
+        target_last_seen_time = 0
+        print("[INFO] 状态已重置")
+
 # --- 核心处理生成器 ---
 def process_camera(cam_id):
     # 此函数内所有逻辑均严格复制自用户提供的 pip2dual.py
